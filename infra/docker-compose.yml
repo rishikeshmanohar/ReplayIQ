@@ -1,0 +1,84 @@
+name: debugflow
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: debugflow-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-debugflow}
+      POSTGRES_USER: ${POSTGRES_USER:-debugflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-debugflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: debugflow-redis
+    profiles: ["placeholder"]
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  collector-service:
+    build:
+      context: ../collector-service
+    container_name: debugflow-collector-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-debugflow}
+      DATABASE_USERNAME: ${POSTGRES_USER:-debugflow}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-debugflow}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-validate}
+      DEBUGFLOW_SECURITY_USERNAME: ${DEBUGFLOW_SECURITY_USERNAME:-debugflow}
+      DEBUGFLOW_SECURITY_PASSWORD: ${DEBUGFLOW_SECURITY_PASSWORD:-debugflow}
+      DEBUGFLOW_CORS_ALLOWED_ORIGINS: ${DEBUGFLOW_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      DEBUGFLOW_MAX_REQUEST_BYTES: ${DEBUGFLOW_MAX_REQUEST_BYTES:-131072}
+      MAX_HTTP_REQUEST_HEADER_SIZE: ${MAX_HTTP_REQUEST_HEADER_SIZE:-16KB}
+      MAX_SWALLOW_SIZE: ${MAX_SWALLOW_SIZE:-256KB}
+      MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-128KB}
+      DEBUGFLOW_AI_PROVIDER: ${DEBUGFLOW_AI_PROVIDER:-mock}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    ports:
+      - "${COLLECTOR_PORT:-8080}:8080"
+
+  demo-victim-app:
+    build:
+      context: ..
+      dockerfile: demo-victim-app/Dockerfile
+    container_name: debugflow-demo-victim-app
+    depends_on:
+      - collector-service
+    environment:
+      SERVER_PORT: 8081
+      DEBUGFLOW_ENABLED: "true"
+      DEBUGFLOW_API_KEY: ${DEBUGFLOW_LOCAL_API_KEY:-debugflow-local-dev-key}
+      DEBUGFLOW_COLLECTOR_URL: http://collector-service:8080
+      DEBUGFLOW_SERVICE_NAME: ${DEMO_DEBUGFLOW_SERVICE_NAME:-demo-victim-app}
+      DEBUGFLOW_ENVIRONMENT: ${DEMO_DEBUGFLOW_ENVIRONMENT:-local}
+    ports:
+      - "${DEMO_VICTIM_APP_PORT:-8081}:8081"
+
+  web-dashboard:
+    build:
+      context: ../web-dashboard
+    container_name: debugflow-web-dashboard
+    profiles: ["dashboard"]
+    depends_on:
+      - collector-service
+    ports:
+      - "${DASHBOARD_PORT:-5173}:80"
+
+volumes:
+  postgres-data:

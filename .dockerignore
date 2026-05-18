@@ -1,0 +1,16 @@
+.git
+.idea
+.vscode
+
+**/target
+**/build
+**/.gradle
+
+**/node_modules
+**/dist
+**/.vite
+
+**/.env
+**/*.log
+tmp
+data
