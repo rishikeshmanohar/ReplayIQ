@@ -1,0 +1,11 @@
+{
+  "installCommand": "npm ci --prefix web-dashboard",
+  "buildCommand": "npm run build --prefix web-dashboard",
+  "outputDirectory": "web-dashboard/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

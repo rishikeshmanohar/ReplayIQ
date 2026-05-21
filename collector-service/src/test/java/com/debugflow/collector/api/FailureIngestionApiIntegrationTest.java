@@ -92,6 +92,21 @@ class FailureIngestionApiIntegrationTest {
     }
 
     @Test
+    void ingestionApiPreservesTraceparentWhenPayloadTraceContextIsMissing() throws Exception {
+        String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        MvcResult result = performIngest(payloadWithoutTraceContext("local"), traceparent)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.traceId").value("4bf92f3577b34da6a3ce929d0e0e4736"))
+                .andReturn();
+
+        Long id = JsonTestUtil.longValue(result, "id");
+        ApiFailureEvent saved = apiFailureEventRepository.findById(id).orElseThrow();
+
+        assertThat(saved.getTraceId()).isEqualTo("4bf92f3577b34da6a3ce929d0e0e4736");
+        assertThat(saved.getSpanId()).isEqualTo("00f067aa0ba902b7");
+    }
+
+    @Test
     void missingApiKeyReturns401() throws Exception {
         mockMvc.perform(post("/api/v1/events/failures")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -186,10 +201,18 @@ class FailureIngestionApiIntegrationTest {
     }
 
     private ResultActions performIngest(String payload) throws Exception {
-        return mockMvc.perform(post("/api/v1/events/failures")
-                        .header("X-DebugFlow-Api-Key", LOCAL_API_KEY)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload));
+        return performIngest(payload, null);
+    }
+
+    private ResultActions performIngest(String payload, String traceparent) throws Exception {
+        var requestBuilder = post("/api/v1/events/failures")
+                .header("X-DebugFlow-Api-Key", LOCAL_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload);
+        if (traceparent != null) {
+            requestBuilder.header("traceparent", traceparent);
+        }
+        return mockMvc.perform(requestBuilder);
     }
 
     private String defaultPayload(String environment) {
@@ -256,6 +279,31 @@ class FailureIngestionApiIntegrationTest {
                   "responseBody": %s
                 }
                 """.formatted(environment, JsonTestUtil.quote(requestBody), JsonTestUtil.quote(responseBody));
+    }
+
+    private String payloadWithoutTraceContext(String environment) {
+        return """
+                {
+                  "serviceName": "checkout-service",
+                  "environment": "%s",
+                  "httpMethod": "POST",
+                  "path": "/api/orders",
+                  "queryString": "debug=true",
+                  "statusCode": 500,
+                  "latencyMs": 1250,
+                  "exceptionType": "java.sql.SQLTransientConnectionException",
+                  "exceptionMessage": "database timeout",
+                  "stackTrace": "java.sql.SQLTransientConnectionException: database timeout",
+                  "requestHeaders": {
+                    "Content-Type": "application/json"
+                  },
+                  "requestBody": "{}",
+                  "responseHeaders": {
+                    "Content-Type": "application/json"
+                  },
+                  "responseBody": "{\\"error\\":\\"database timeout\\"}"
+                }
+                """.formatted(environment);
     }
 
     private record IngestResult(MvcResult result) {

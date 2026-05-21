@@ -41,8 +41,9 @@ public class FailureIngestionController {
     @PostMapping
     public ResponseEntity<FailureIngestionResponse> ingest(
             @RequestHeader(name = API_KEY_HEADER, required = false) String apiKey,
+            @RequestHeader(name = "traceparent", required = false) String traceparent,
             @Valid @RequestBody FailureIngestionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(failureIngestionService.ingest(apiKey, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(failureIngestionService.ingest(apiKey, traceparent, request));
     }
 
     @GetMapping

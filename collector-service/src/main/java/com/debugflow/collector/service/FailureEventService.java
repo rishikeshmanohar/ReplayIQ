@@ -25,16 +25,19 @@ public class FailureEventService {
     private final ApiFailureEventRepository apiFailureEventRepository;
     private final RootCauseAnalysisRepository rootCauseAnalysisRepository;
     private final RootCauseAnalyzer rootCauseAnalyzer;
+    private final TraceContextService traceContextService;
     private final ObjectMapper objectMapper;
 
     public FailureEventService(
             ApiFailureEventRepository apiFailureEventRepository,
             RootCauseAnalysisRepository rootCauseAnalysisRepository,
             RootCauseAnalyzer rootCauseAnalyzer,
+            TraceContextService traceContextService,
             ObjectMapper objectMapper) {
         this.apiFailureEventRepository = apiFailureEventRepository;
         this.rootCauseAnalysisRepository = rootCauseAnalysisRepository;
         this.rootCauseAnalyzer = rootCauseAnalyzer;
+        this.traceContextService = traceContextService;
         this.objectMapper = objectMapper;
     }
 
@@ -44,8 +47,10 @@ public class FailureEventService {
         event.setProjectId(request.projectId() == null ? DEFAULT_PROJECT_ID : request.projectId());
         event.setServiceName(request.serviceName());
         event.setEnvironment(request.environment());
-        event.setTraceId(request.traceId());
-        event.setSpanId(request.spanId());
+        TraceContextService.TraceContext traceContext =
+                traceContextService.resolve(request.traceId(), request.spanId(), null);
+        event.setTraceId(traceContext.traceId());
+        event.setSpanId(traceContext.spanId());
         event.setHttpMethod(resolveHttpMethod(request));
         event.setPath(request.path());
         event.setQueryString(request.queryString());

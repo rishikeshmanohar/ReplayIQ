@@ -101,6 +101,46 @@ To reset local data:
 docker compose --env-file infra/.env.example -f infra/docker-compose.yml --profile dashboard down -v
 ```
 
+## Deploy The Dashboard
+
+The React dashboard can be hosted as a static site. GitHub Pages and Vercel only host the frontend; the collector API and PostgreSQL still need to run somewhere reachable if you want a fully functional public demo.
+
+### GitHub Pages
+
+This repo includes a GitHub Actions workflow at `.github/workflows/deploy-web-dashboard.yml`.
+
+After pushing to `main`, GitHub Actions builds `web-dashboard`, deploys it to GitHub Pages, and serves it under:
+
+```text
+https://rishikeshmanohar.github.io/ReplayIQ/
+```
+
+If GitHub asks for a Pages source, choose **GitHub Actions** in repository settings.
+
+Optional repository variables:
+
+- `VITE_API_BASE_URL`: public collector API URL. Defaults to `http://localhost:8080`.
+
+If the dashboard points to a hosted collector API, update collector CORS:
+
+```text
+DEBUGFLOW_CORS_ALLOWED_ORIGINS=https://rishikeshmanohar.github.io,http://localhost:5173,http://127.0.0.1:5173
+```
+
+### Vercel
+
+This repo includes a root `vercel.json` that builds only `web-dashboard`:
+
+```json
+{
+  "installCommand": "npm ci --prefix web-dashboard",
+  "buildCommand": "npm run build --prefix web-dashboard",
+  "outputDirectory": "web-dashboard/dist"
+}
+```
+
+In Vercel, import the `ReplayIQ` GitHub repo and deploy. Set `VITE_API_BASE_URL` in Vercel environment variables if the collector API is hosted publicly.
+
 ## Trigger Demo Failures
 
 The demo victim app has one healthy endpoint and several failing endpoints. The DebugFlow SDK is configured in the demo app and sends captured failures to the collector.
@@ -311,6 +351,31 @@ debugflow:
 
 The SDK auto-registers a servlet filter and sends captured `5xx` or exception events asynchronously. It fails silently if the collector is unavailable.
 
+## OpenTelemetry
+
+OpenTelemetry is optional. DebugFlow stores `traceId` and `spanId` on every captured failure, but it does not require an OpenTelemetry collector, agent, or SDK to run.
+
+Trace context resolution order:
+
+- Preserve `traceId` and `spanId` sent by the DebugFlow SDK payload.
+- Preserve W3C `traceparent` from direct ingestion requests when the payload does not include trace IDs.
+- In the Spring SDK, read `io.opentelemetry.api.trace.Span.current()` through reflection when the OpenTelemetry API is available.
+- Fall back to B3 or legacy trace headers.
+- Generate a trace ID and span ID when no trace context is present.
+
+Run an instrumented Spring Boot app with the OpenTelemetry Java agent:
+
+```bash
+java \
+  -javaagent:/path/to/opentelemetry-javaagent.jar \
+  -Dotel.service.name=demo-victim-app \
+  -Dotel.traces.exporter=otlp \
+  -Dotel.exporter.otlp.endpoint=http://localhost:4317 \
+  -jar app.jar
+```
+
+When the Java agent propagates a `traceparent` header into the application request, DebugFlow preserves it. If your app also has the OpenTelemetry API on its classpath, the SDK can read the current span directly. Without either, DebugFlow still generates IDs so captured failures remain filterable and linkable.
+
 ## Security Notes
 
 - SDK ingestion uses `X-DebugFlow-Api-Key`.
@@ -339,13 +404,13 @@ The SDK auto-registers a servlet filter and sends captured `5xx` or exception ev
 - The mock analyzer uses rule-based heuristics, not deep program analysis.
 - PostgreSQL is the only event store.
 - There is no distributed queue for ingestion spikes yet.
-- No OpenTelemetry span ingestion yet.
+- OpenTelemetry support is basic trace/span capture only; DebugFlow does not ingest full spans.
 - No alerting, ownership routing, or incident workflow automation yet.
 - No hosted deployment manifests beyond Docker Compose.
 
 ## Future Roadmap
 
-- OpenTelemetry integration for traces, spans, and service topology.
+- Deeper OpenTelemetry integration for full traces, spans, and service topology.
 - Kafka ingestion for high-throughput event buffering.
 - ClickHouse storage for analytical querying at larger scale.
 - Slack alerts for high-impact or repeated failures.

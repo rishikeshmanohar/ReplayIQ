@@ -38,6 +38,7 @@ public class FailureIngestionService {
     private final RootCauseAnalyzer rootCauseAnalyzer;
     private final SensitiveHeaderMasker sensitiveHeaderMasker;
     private final PayloadSizeLimiter payloadSizeLimiter;
+    private final TraceContextService traceContextService;
 
     public FailureIngestionService(
             ProjectApiKeyAuthenticator projectApiKeyAuthenticator,
@@ -46,7 +47,8 @@ public class FailureIngestionService {
             ReplayAttemptRepository replayAttemptRepository,
             RootCauseAnalyzer rootCauseAnalyzer,
             SensitiveHeaderMasker sensitiveHeaderMasker,
-            PayloadSizeLimiter payloadSizeLimiter) {
+            PayloadSizeLimiter payloadSizeLimiter,
+            TraceContextService traceContextService) {
         this.projectApiKeyAuthenticator = projectApiKeyAuthenticator;
         this.apiFailureEventRepository = apiFailureEventRepository;
         this.rootCauseAnalysisRepository = rootCauseAnalysisRepository;
@@ -54,18 +56,20 @@ public class FailureIngestionService {
         this.rootCauseAnalyzer = rootCauseAnalyzer;
         this.sensitiveHeaderMasker = sensitiveHeaderMasker;
         this.payloadSizeLimiter = payloadSizeLimiter;
+        this.traceContextService = traceContextService;
     }
 
     @Transactional
-    public FailureIngestionResponse ingest(String apiKey, FailureIngestionRequest request) {
+    public FailureIngestionResponse ingest(String apiKey, String traceparent, FailureIngestionRequest request) {
         Project project = projectApiKeyAuthenticator.authenticate(apiKey);
+        TraceContextService.TraceContext traceContext = traceContextService.resolve(request.traceId(), request.spanId(), traceparent);
 
         ApiFailureEvent event = new ApiFailureEvent();
         event.setProjectId(project.getId());
         event.setServiceName(request.serviceName());
         event.setEnvironment(blankToNull(request.environment()));
-        event.setTraceId(blankToNull(request.traceId()));
-        event.setSpanId(blankToNull(request.spanId()));
+        event.setTraceId(traceContext.traceId());
+        event.setSpanId(traceContext.spanId());
         event.setHttpMethod(request.httpMethod().toUpperCase());
         event.setPath(request.path());
         event.setQueryString(blankToNull(request.queryString()));
