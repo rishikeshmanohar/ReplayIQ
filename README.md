@@ -190,6 +190,8 @@ VITE_API_USERNAME=debugflow
 VITE_API_PASSWORD=debugflow
 ```
 
+These values match the collector service defaults in `collector-service/.env.example`.
+
 In the dashboard you can:
 
 - View the failure list.
