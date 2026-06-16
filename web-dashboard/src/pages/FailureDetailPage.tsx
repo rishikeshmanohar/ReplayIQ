@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, Play, RotateCcw } from "lucide-react";
+import { Activity, ArrowLeft, Check, Clipboard, Play, RotateCcw } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getFailure, getFailureAnalysis, replayFailure, runFailureAnalysis } from "../api";
@@ -19,6 +19,7 @@ function FailureDetailPage() {
   const [replayError, setReplayError] = useState<string | null>(null);
   const [targetBaseUrl, setTargetBaseUrl] = useState("http://localhost:8081");
   const [allowPaymentReplay, setAllowPaymentReplay] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "error">("idle");
 
   useEffect(() => {
     if (!id) {
@@ -26,6 +27,15 @@ function FailureDetailPage() {
     }
     void loadDetail(id);
   }, [id]);
+
+  useEffect(() => {
+    if (copyStatus === "idle" || copyStatus === "copying") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopyStatus("idle"), 2500);
+    return () => window.clearTimeout(timeoutId);
+  }, [copyStatus]);
 
   async function loadDetail(failureId: string) {
     setIsLoading(true);
@@ -88,6 +98,20 @@ function FailureDetailPage() {
     }
   }
 
+  async function copyTriageReport() {
+    if (!failure) {
+      return;
+    }
+
+    setCopyStatus("copying");
+    try {
+      await writeClipboard(buildTriageReport(failure, analysis));
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  }
+
   if (isLoading) {
     return <PageState title="Loading failure..." />;
   }
@@ -111,11 +135,18 @@ function FailureDetailPage() {
           </div>
           <h2 className="mt-2 break-words text-2xl font-semibold">{failure.path}</h2>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+          <button className="icon-button" disabled={copyStatus === "copying"} onClick={copyTriageReport} type="button">
+            {copyStatus === "copied" ? <Check size={17} /> : <Clipboard size={17} />}
+            <span>{copyStatus === "copying" ? "Copying" : copyStatus === "copied" ? "Copied" : "Copy report"}</span>
+          </button>
           <button className="icon-button" onClick={() => id && void loadDetail(id)} type="button">
             <RotateCcw size={17} />
             <span>Refresh</span>
           </button>
+          {copyStatus === "error" ? (
+            <p className="basis-full text-sm font-medium text-red-700 md:text-right">Report copy failed.</p>
+          ) : null}
         </div>
       </div>
 
@@ -282,6 +313,95 @@ function PageState({ title, detail }: { title: string; detail?: string }) {
       {detail ? <p className="mt-2 text-sm text-slate-600">{detail}</p> : null}
     </div>
   );
+}
+
+async function writeClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  const didCopy = document.execCommand("copy");
+  document.body.removeChild(textArea);
+
+  if (!didCopy) {
+    throw new Error("Clipboard copy failed");
+  }
+}
+
+function buildTriageReport(failure: FailureEvent, analysis: FailureAnalysis | null) {
+  const attempts = failure.replayAttempts ?? [];
+  const latestAttempt = attempts[0];
+
+  return [
+    `# Failure ${failure.id}: ${failure.httpMethod} ${formatPath(failure)}`,
+    "",
+    "## Request",
+    `- Service: ${failure.serviceName}`,
+    `- Environment: ${failure.environment ?? "Not captured"}`,
+    `- Status: ${failure.statusCode}`,
+    `- Latency: ${formatDuration(failure.latencyMs)}`,
+    `- Occurred: ${formatDateTime(failure.occurredAt)}`,
+    `- Trace ID: ${failure.traceId ?? "Not captured"}`,
+    `- Span ID: ${failure.spanId ?? "Not captured"}`,
+    "",
+    "## Exception",
+    `- Type: ${failure.exceptionType ?? "None captured"}`,
+    `- Message: ${failure.exceptionMessage ?? "None captured"}`,
+    "",
+    "## Root Cause Analysis",
+    `- Summary: ${analysis?.summary ?? "Not generated"}`,
+    `- Likely cause: ${analysis?.likelyCause ?? "Not generated"}`,
+    `- Suggested fix: ${analysis?.suggestedFix ?? analysis?.suggestedAction ?? "Not generated"}`,
+    `- Confidence: ${analysis?.confidence == null ? "Not scored" : `${Math.round(analysis.confidence * 100)}%`}`,
+    "",
+    "## Replay",
+    attempts.length === 0
+      ? "- No replay attempts recorded."
+      : `- Attempts: ${attempts.length}`,
+    latestAttempt
+      ? `- Latest: ${latestAttempt.statusCode} in ${formatDuration(latestAttempt.latencyMs)} at ${formatDateTime(latestAttempt.replayedAt)}`
+      : null,
+    "",
+    reportSection("Request Headers", failure.requestHeaders),
+    reportSection("Request Body", failure.requestBody),
+    reportSection("Response Headers", failure.responseHeaders),
+    reportSection("Response Body", failure.responseBody),
+    reportSection("Stack Trace", failure.stackTrace, 2400)
+  ]
+    .filter((line): line is string => line != null)
+    .join("\n");
+}
+
+function reportSection(title: string, value: unknown, maxLength = 1200) {
+  return [
+    `## ${title}`,
+    "",
+    "```",
+    truncateReportValue(formatJson(value), maxLength).replace(/```/g, "` ` `"),
+    "```"
+  ].join("\n");
+}
+
+function truncateReportValue(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}\n... truncated for handoff ...`;
+}
+
+function formatPath(failure: FailureEvent) {
+  return `${failure.path}${failure.queryString ? `?${failure.queryString}` : ""}`;
 }
 
 export default FailureDetailPage;
