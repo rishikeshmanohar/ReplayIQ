@@ -197,6 +197,7 @@ In the dashboard you can:
 - Open a failure detail page.
 - Inspect request headers, request body, response headers, response body, and stack trace.
 - Run root-cause analysis.
+- Copy a Markdown triage report from any failure detail page.
 - Replay eligible local or staging failures.
 - Review previous replay attempts.
 
