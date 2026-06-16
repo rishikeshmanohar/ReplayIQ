@@ -2,6 +2,7 @@ import { AlertTriangle, RotateCcw, Search } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { listFailures } from "../api";
+import FailureInsights from "../components/FailureInsights";
 import StatusCode from "../components/StatusCode";
 import type { FailureEvent, FailureFilters } from "../types";
 import { formatDateTime, formatDuration } from "../utils/format";
@@ -42,8 +43,22 @@ function FailureListPage() {
     setSearchParams({});
   }
 
+  function applyInsightFilters(filterPatch: FailureFilters) {
+    const nextFilters = { ...filters, ...filterPatch };
+    setDraftFilters(nextFilters);
+    setSearchParams(searchParamsFromFilters(nextFilters));
+  }
+
   return (
     <div className="space-y-5">
+      <FailureInsights
+        failures={failures}
+        filters={filters}
+        isLoading={isLoading}
+        onApplyFilter={applyInsightFilters}
+        onOpenFailure={(failureId) => navigate(`/failures/${failureId}`)}
+      />
+
       <section className="rounded-md border border-line bg-white">
         <div className="flex flex-col gap-3 border-b border-line px-4 py-4 md:flex-row md:items-center md:justify-between">
           <div>
