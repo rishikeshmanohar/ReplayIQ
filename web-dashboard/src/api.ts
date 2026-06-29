@@ -1,8 +1,8 @@
 import type { FailureAnalysis, FailureEvent, FailureFilters, ReplayAttempt, RootCauseAnalysisResponse } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
-const API_USERNAME = import.meta.env.VITE_API_USERNAME ?? "debugflow";
-const API_PASSWORD = import.meta.env.VITE_API_PASSWORD ?? "debugflow";
+const API_USERNAME = import.meta.env.VITE_API_USERNAME ?? "failframe";
+const API_PASSWORD = import.meta.env.VITE_API_PASSWORD ?? "failframe";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -23,9 +23,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 async function errorMessage(response: Response) {
   try {
     const payload = await response.clone().json() as { detail?: string; title?: string; message?: string };
-    return payload.detail || payload.message || payload.title || `DebugFlow API returned ${response.status}`;
+    return payload.detail || payload.message || payload.title || `FailFrame API returned ${response.status}`;
   } catch {
-    return `DebugFlow API returned ${response.status}`;
+    return `FailFrame API returned ${response.status}`;
   }
 }
 

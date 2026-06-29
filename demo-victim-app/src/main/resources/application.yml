@@ -5,9 +5,9 @@ spring:
   application:
     name: demo-victim-app
 
-debugflow:
-  enabled: ${DEBUGFLOW_ENABLED:true}
-  api-key: ${DEBUGFLOW_API_KEY:debugflow-local-dev-key}
-  collector-url: ${DEBUGFLOW_COLLECTOR_URL:http://localhost:8080}
-  service-name: ${DEBUGFLOW_SERVICE_NAME:demo-victim-app}
-  environment: ${DEBUGFLOW_ENVIRONMENT:local}
+failframe:
+  enabled: ${FAILFRAME_ENABLED:true}
+  api-key: ${FAILFRAME_API_KEY:failframe-local-dev-key}
+  collector-url: ${FAILFRAME_COLLECTOR_URL:http://localhost:8080}
+  service-name: ${FAILFRAME_SERVICE_NAME:demo-victim-app}
+  environment: ${FAILFRAME_ENVIRONMENT:local}
