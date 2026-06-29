@@ -190,6 +190,8 @@ VITE_API_USERNAME=failframe
 VITE_API_PASSWORD=failframe
 ```
 
+These values match the collector service defaults in `collector-service/.env.example`.
+
 In the dashboard you can:
 
 - View the failure list.
