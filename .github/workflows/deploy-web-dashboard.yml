@@ -38,8 +38,8 @@ jobs:
         run: npm run build
         working-directory: web-dashboard
         env:
-          VITE_BASE_PATH: /ReplayIQ/
-          VITE_ROUTER_BASENAME: /ReplayIQ
+          VITE_BASE_PATH: /FailFrame/
+          VITE_ROUTER_BASENAME: /FailFrame
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'http://localhost:8080' }}
 
       - name: Add SPA fallback

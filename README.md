@@ -1,12 +1,12 @@
-# DebugFlow
+# FailFrame
 
-DebugFlow is an MVP for backend teams that need to capture failed API requests, inspect the exact failure context, ask for root-cause analysis, and safely replay failures against non-production targets.
+FailFrame is an MVP for backend teams that need to capture failed API requests, inspect the exact failure context, ask for root-cause analysis, and safely replay failures against non-production targets.
 
 It is built as a production-style monorepo, but intentionally stays small: one collector service, one Spring SDK, one demo app, one React dashboard, and Docker Compose for local infrastructure.
 
-## What DebugFlow Does
+## What FailFrame Does
 
-DebugFlow helps answer a common backend question: "This API failed in staging or local. What exactly happened, and can I reproduce it safely?"
+FailFrame helps answer a common backend question: "This API failed in staging or local. What exactly happened, and can I reproduce it safely?"
 
 The MVP can:
 
@@ -27,8 +27,8 @@ flowchart LR
     User["Backend engineer"] --> Dashboard["React dashboard"]
     Dashboard -->|Basic admin auth| Collector["collector-service<br/>Spring Boot API"]
 
-    Victim["demo-victim-app<br/>Spring Boot service"] --> SDK["debugflow-spring-sdk<br/>OncePerRequestFilter"]
-    SDK -->|X-DebugFlow-Api-Key| Collector
+    Victim["demo-victim-app<br/>Spring Boot service"] --> SDK["failframe-spring-sdk<br/>OncePerRequestFilter"]
+    SDK -->|X-FailFrame-Api-Key| Collector
 
     Collector --> Postgres["PostgreSQL<br/>failures, RCA, replay attempts"]
     Collector --> Analyzer["RootCauseAnalyzer<br/>mock by default"]
@@ -55,7 +55,7 @@ flowchart LR
 
 ```text
 collector-service/  Spring Boot API for ingestion, persistence, analysis, and replay
-spring-sdk/         Spring Boot SDK module for sending failures to DebugFlow
+spring-sdk/         Spring Boot SDK module for sending failures to FailFrame
 demo-victim-app/    Demo Spring Boot service that emits SDK failure events
 web-dashboard/      React, TypeScript, Vite, and Tailwind dashboard
 infra/              Docker Compose and local infrastructure config
@@ -83,9 +83,9 @@ Services:
 
 Default local credentials:
 
-- Admin username: `debugflow`
-- Admin password: `debugflow`
-- Seeded local project API key: `debugflow-local-dev-key`
+- Admin username: `failframe`
+- Admin password: `failframe`
+- Seeded local project API key: `failframe-local-dev-key`
 
 The seeded API key is stored in PostgreSQL as a salted SHA-256 hash. The raw API key is only used by SDKs and ingestion clients.
 
@@ -112,7 +112,7 @@ This repo includes a GitHub Actions workflow at `.github/workflows/deploy-web-da
 After pushing to `main`, GitHub Actions builds `web-dashboard`, deploys it to GitHub Pages, and serves it under:
 
 ```text
-https://rishikeshmanohar.github.io/ReplayIQ/
+https://rishikeshmanohar.github.io/FailFrame/
 ```
 
 If GitHub asks for a Pages source, choose **GitHub Actions** in repository settings.
@@ -124,7 +124,7 @@ Optional repository variables:
 If the dashboard points to a hosted collector API, update collector CORS:
 
 ```text
-DEBUGFLOW_CORS_ALLOWED_ORIGINS=https://rishikeshmanohar.github.io,http://localhost:5173,http://127.0.0.1:5173
+FAILFRAME_CORS_ALLOWED_ORIGINS=https://rishikeshmanohar.github.io,http://localhost:5173,http://127.0.0.1:5173
 ```
 
 ### Vercel
@@ -139,11 +139,11 @@ This repo includes a root `vercel.json` that builds only `web-dashboard`:
 }
 ```
 
-In Vercel, import the `ReplayIQ` GitHub repo and deploy. Set `VITE_API_BASE_URL` in Vercel environment variables if the collector API is hosted publicly.
+In Vercel, import the `FailFrame` GitHub repo and deploy. Set `VITE_API_BASE_URL` in Vercel environment variables if the collector API is hosted publicly.
 
 ## Trigger Demo Failures
 
-The demo victim app has one healthy endpoint and several failing endpoints. The DebugFlow SDK is configured in the demo app and sends captured failures to the collector.
+The demo victim app has one healthy endpoint and several failing endpoints. The FailFrame SDK is configured in the demo app and sends captured failures to the collector.
 
 Healthy request, not captured:
 
@@ -173,7 +173,7 @@ curl \
   -d '{"token":"expired","customerId":"cus_demo","amountCents":4200}'
 ```
 
-Sensitive headers such as `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, and `X-DebugFlow-Api-Key` are masked before storage.
+Sensitive headers such as `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, and `X-FailFrame-Api-Key` are masked before storage.
 
 ## Open The Dashboard
 
@@ -186,8 +186,8 @@ http://localhost:5173
 The dashboard uses basic admin auth when calling collector APIs. In local development, credentials are configured through:
 
 ```text
-VITE_API_USERNAME=debugflow
-VITE_API_PASSWORD=debugflow
+VITE_API_USERNAME=failframe
+VITE_API_PASSWORD=failframe
 ```
 
 In the dashboard you can:
@@ -207,7 +207,7 @@ Direct ingestion uses project API-key auth:
 
 ```bash
 curl \
-  -H "X-DebugFlow-Api-Key: debugflow-local-dev-key" \
+  -H "X-FailFrame-Api-Key: failframe-local-dev-key" \
   -H "Content-Type: application/json" \
   -X POST http://localhost:8080/api/v1/events/failures \
   -d '{
@@ -238,20 +238,20 @@ curl \
 Dashboard and admin APIs use basic auth:
 
 ```bash
-curl -u debugflow:debugflow http://localhost:8080/api/v1/events/failures
+curl -u failframe:failframe http://localhost:8080/api/v1/events/failures
 ```
 
 Create another local testing project and one-time API key:
 
 ```bash
 curl \
-  -u debugflow:debugflow \
+  -u failframe:failframe \
   -H "Content-Type: application/json" \
   -X POST http://localhost:8080/api/admin/projects/dev-key \
   -d '{"name":"Local Sandbox"}'
 ```
 
-The response includes `apiKey` once. Store it in SDK config. DebugFlow never returns `apiKeyHash` in API responses.
+The response includes `apiKey` once. Store it in SDK config. FailFrame never returns `apiKeyHash` in API responses.
 
 ## AI Analysis
 
@@ -259,7 +259,7 @@ Run analysis from the dashboard, or call:
 
 ```bash
 curl \
-  -u debugflow:debugflow \
+  -u failframe:failframe \
   -X POST http://localhost:8080/api/v1/events/failures/1/analyze
 ```
 
@@ -270,7 +270,7 @@ The analyzer returns:
 - `suggestedFix`
 - `confidence`
 
-By default, DebugFlow uses `MockRootCauseAnalyzer`. It inspects fields such as status code, exception message, stack trace, and response body.
+By default, FailFrame uses `MockRootCauseAnalyzer`. It inspects fields such as status code, exception message, stack trace, and response body.
 
 Current mock rules include:
 
@@ -282,13 +282,13 @@ Current mock rules include:
 To enable the OpenAI-compatible analyzer:
 
 ```bash
-DEBUGFLOW_AI_PROVIDER=openai
+FAILFRAME_AI_PROVIDER=openai
 OPENAI_API_KEY=your_key_here
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-If `OPENAI_API_KEY` is missing or the provider call fails, DebugFlow falls back to the mock analyzer. Before sending data to the OpenAI-compatible provider, DebugFlow avoids sensitive auth headers and truncates stack traces and bodies.
+If `OPENAI_API_KEY` is missing or the provider call fails, FailFrame falls back to the mock analyzer. Before sending data to the OpenAI-compatible provider, FailFrame avoids sensitive auth headers and truncates stack traces and bodies.
 
 ## Safe Replay
 
@@ -296,7 +296,7 @@ Replay can be triggered from the failure detail page or by API:
 
 ```bash
 curl \
-  -u debugflow:debugflow \
+  -u failframe:failframe \
   -H "Content-Type: application/json" \
   -X POST http://localhost:8080/api/v1/events/failures/1/replay \
   -d '{"targetBaseUrl":"http://localhost:8081","allowPaymentReplay":false}'
@@ -307,9 +307,9 @@ Replay safety rules:
 - Only `local` and `staging` failure events can be replayed.
 - `production` events are blocked.
 - Payment paths are blocked unless `allowPaymentReplay` is explicitly `true`.
-- `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, and `X-DebugFlow-Api-Key` are never replayed.
+- `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, and `X-FailFrame-Api-Key` are never replayed.
 - Caller must provide `targetBaseUrl`.
-- DebugFlow reconstructs method, path, query string, non-sensitive headers, and body.
+- FailFrame reconstructs method, path, query string, non-sensitive headers, and body.
 - Replay result is stored as a `ReplayAttempt`.
 
 Stored replay result fields:
@@ -333,8 +333,8 @@ Add the SDK dependency to a Spring Boot app:
 
 ```xml
 <dependency>
-  <groupId>com.debugflow</groupId>
-  <artifactId>debugflow-spring-sdk</artifactId>
+  <groupId>com.failframe</groupId>
+  <artifactId>failframe-spring-sdk</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -342,9 +342,9 @@ Add the SDK dependency to a Spring Boot app:
 Configure it:
 
 ```yaml
-debugflow:
+failframe:
   enabled: true
-  api-key: debugflow-local-dev-key
+  api-key: failframe-local-dev-key
   collector-url: http://localhost:8080
   service-name: checkout-service
   environment: local
@@ -354,11 +354,11 @@ The SDK auto-registers a servlet filter and sends captured `5xx` or exception ev
 
 ## OpenTelemetry
 
-OpenTelemetry is optional. DebugFlow stores `traceId` and `spanId` on every captured failure, but it does not require an OpenTelemetry collector, agent, or SDK to run.
+OpenTelemetry is optional. FailFrame stores `traceId` and `spanId` on every captured failure, but it does not require an OpenTelemetry collector, agent, or SDK to run.
 
 Trace context resolution order:
 
-- Preserve `traceId` and `spanId` sent by the DebugFlow SDK payload.
+- Preserve `traceId` and `spanId` sent by the FailFrame SDK payload.
 - Preserve W3C `traceparent` from direct ingestion requests when the payload does not include trace IDs.
 - In the Spring SDK, read `io.opentelemetry.api.trace.Span.current()` through reflection when the OpenTelemetry API is available.
 - Fall back to B3 or legacy trace headers.
@@ -375,18 +375,18 @@ java \
   -jar app.jar
 ```
 
-When the Java agent propagates a `traceparent` header into the application request, DebugFlow preserves it. If your app also has the OpenTelemetry API on its classpath, the SDK can read the current span directly. Without either, DebugFlow still generates IDs so captured failures remain filterable and linkable.
+When the Java agent propagates a `traceparent` header into the application request, FailFrame preserves it. If your app also has the OpenTelemetry API on its classpath, the SDK can read the current span directly. Without either, FailFrame still generates IDs so captured failures remain filterable and linkable.
 
 ## Security Notes
 
-- SDK ingestion uses `X-DebugFlow-Api-Key`.
+- SDK ingestion uses `X-FailFrame-Api-Key`.
 - Dashboard and admin APIs use HTTP basic auth.
 - API keys are stored as salted SHA-256 hashes.
 - Admin passwords are hashed with BCrypt in the in-memory Spring Security user store.
 - Raw API keys are not logged by application code.
 - `apiKeyHash` is not returned by API responses.
 - Request and response bodies are truncated to 10KB before event storage.
-- API request bodies are capped at 128KB by default through `DEBUGFLOW_MAX_REQUEST_BYTES`.
+- API request bodies are capped at 128KB by default through `FAILFRAME_MAX_REQUEST_BYTES`.
 - CORS is configured for the local dashboard origins.
 
 ## Environment Files
@@ -405,7 +405,7 @@ When the Java agent propagates a `traceparent` header into the application reque
 - The mock analyzer uses rule-based heuristics, not deep program analysis.
 - PostgreSQL is the only event store.
 - There is no distributed queue for ingestion spikes yet.
-- OpenTelemetry support is basic trace/span capture only; DebugFlow does not ingest full spans.
+- OpenTelemetry support is basic trace/span capture only; FailFrame does not ingest full spans.
 - No alerting, ownership routing, or incident workflow automation yet.
 - No hosted deployment manifests beyond Docker Compose.
 

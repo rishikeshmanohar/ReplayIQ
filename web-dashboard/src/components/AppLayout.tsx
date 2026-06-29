@@ -16,7 +16,7 @@ function AppLayout({ children }: AppLayoutProps) {
               <DatabaseZap size={20} />
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-brand">DebugFlow</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-brand">FailFrame</div>
               <h1 className="text-xl font-semibold">Failure replay dashboard</h1>
             </div>
           </div>
